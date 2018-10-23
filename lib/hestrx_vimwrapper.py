@@ -67,6 +67,10 @@ class Variables:
     def __init__(self, scope=''):
         self.__dict__['scope'] = scope
 
+    def __contains__(self, name):
+        var = self.__dict__['scope'] + name
+        return vim.eval('exists({})'.format(var))
+
     def __getattr__(self, name):
         var = self.__dict__['scope'] + name
         return vim.eval(var)
@@ -77,6 +81,10 @@ class Variables:
             var,
             quote_str(value) if isinstance(value, str) else value
         ))
+
+    def __delattr__(self, name):
+        var = self.__dict__['scope'] + name
+        cmd('unlet ' + var)
 
 class Settings:
     def __getattr__(self, name):

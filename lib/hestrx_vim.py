@@ -15,6 +15,7 @@ from hestrx_vimwrapper import cmd
 from hestrx_vimwrapper import echo
 from hestrx_vimwrapper import persisted_setting
 from hestrx_vimwrapper import buffer_flags
+from hestrx_vimwrapper import buffer_vars
 from hestrx_vimwrapper import settings
 from hestrx_vimwrapper import setting_flags
 from hestrx_vimwrapper import vim_flags
@@ -119,9 +120,18 @@ def set_bin():
     settings.buftype = ''
     buffer_flags.hestrx = False
 
+    if 'hestrx_filetype' in buffer_vars:
+        settings.filetype = buffer_vars.hestrx_filetype
+        del buffer_vars.hestrx_filetype
+
 def set_hex():
     settings.buftype = 'acwrite'
     buffer_flags.hestrx = True
+
+    current_filetype = settings.filetype
+    if current_filetype != 'shx':
+        buffer_vars.hestrx_filetype = current_filetype
+        settings.filetype = 'shx'
 
     if not buffer_flags.hestrx_write_hook:
         cmd('autocmd BufWriteCmd <buffer> pythonx hestrx_vim.save()')
