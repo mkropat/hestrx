@@ -14,12 +14,6 @@ from hestrx import Stopwatch
 from hestrx_vimwrapper import cmd
 from hestrx_vimwrapper import echo
 from hestrx_vimwrapper import persisted_setting
-from hestrx_vimwrapper import buffer_flags
-from hestrx_vimwrapper import buffer_vars
-from hestrx_vimwrapper import settings
-from hestrx_vimwrapper import setting_flags
-from hestrx_vimwrapper import vim_flags
-from hestrx_vimwrapper import vim_vars
 
 encoding_to_bom = {
     'utf_16_be': codecs.BOM_UTF16_BE,
@@ -38,7 +32,8 @@ vim_to_python_encodings = {
 }
 
 def toggle_hex():
-    if buffer_flags.hestrx:
+    buf = vim.current.buffer
+    if 'hestrx' in buf.vars:
         buf2bin()
     else:
         buf2hex()
@@ -59,7 +54,7 @@ def buf2hex():
     if in_hex():
         return
 
-    if settings.buftype != '':
+    if vim.current.buffer.options['buftype']:
         echo('Error converting to hex: buffer must be a normal file', highlight='warningMsg')
         return
 
@@ -84,7 +79,8 @@ def save():
         write_vim(afile)
 
 def in_hex():
-    setting = buffer_flags.hestrx
+    buf = vim.current.buffer
+    setting = 'hestrx' in buf.vars
     heuristic = in_hex_heuristic()
 
     if setting != heuristic:
@@ -96,57 +92,67 @@ def in_hex():
     return heuristic
 
 def bin2hex():
+    buf = vim.current.buffer
+
     with persisted_setting('modified'):
         line_ending = get_line_ending()
         if sys.version_info.major == 2:
-            as_bytes = (l + line_ending for l in vim.current.buffer)
+            as_bytes = (l + line_ending for l in buf)
         else:
-            lines = (l + line_ending for l in vim.current.buffer)
+            lines = (l + line_ending for l in buf)
 
             as_bytes = (l.encode(get_fileencoding(), errors='copyerrors') for l in lines)
 
         bytes_with_bom = prepend(get_bom(), as_bytes)
-        vim.current.buffer[:] = list(generate_hex(bytes_with_bom))
+        buf[:] = list(generate_hex(bytes_with_bom))
 
 def hex2bin():
+    buf = vim.current.buffer
+
     with persisted_setting('modified'):
-        byte_iter = generate_bytes(vim.current.buffer)
+        byte_iter = generate_bytes(buf)
         str_iter = iterdecode(handle_bom(byte_iter), get_fileencoding(), errors='copyerrors')
         lines = iter_split(str_iter, get_line_ending())
 
-        vim.current.buffer[:] = list(lines)
+        buf[:] = list(lines)
 
 def set_bin():
-    settings.buftype = ''
-    buffer_flags.hestrx = False
+    buf = vim.current.buffer
 
-    if 'hestrx_filetype' in buffer_vars:
-        settings.filetype = buffer_vars.hestrx_filetype
-        del buffer_vars.hestrx_filetype
+    buf.options['buftype'] = ''
+    del buf.vars['hestrx']
+
+    if 'hestrx_filetype' in buf.vars:
+        cmd('setlocal filetype=' + buf.vars['hestrx_filetype'].decode('ascii'))
+        del buf.vars['hestrx_filetype']
 
 def set_hex():
-    settings.buftype = 'acwrite'
-    buffer_flags.hestrx = True
+    buf = vim.current.buffer
 
-    current_filetype = settings.filetype
+    buf.options['buftype'] = 'acwrite'
+    buf.vars['hestrx'] = True
+
+    current_filetype = buf.options['filetype']
     if current_filetype != 'shx':
-        buffer_vars.hestrx_filetype = current_filetype
-        settings.filetype = 'shx'
+        buf.vars['hestrx_filetype'] = current_filetype
+        cmd('setlocal filetype=shx')
 
-    if not buffer_flags.hestrx_write_hook:
+    if 'hestrx_write_hook' not in buf.vars:
         cmd('autocmd BufWriteCmd <buffer> pythonx hestrx_vim.save()')
-        buffer_flags.hestrx_write_hook = True
+        buf.vars['hestrx_write_hook'] = True
 
 def write_hex(file_name):
+    buf = vim.current.buffer
+
     with open(file_name, 'wb') as f:
-        for chunk in generate_bytes(vim.current.buffer):
+        for chunk in generate_bytes(buf):
             f.write(chunk)
-    setting_flags.modified = False
+    buf.options['modified'] = False
 
 def write_vim(file_name):
     write_cmd = 'write{} {} {}'.format(
-        ('!' if vim_flags.cmdbang else ''),
-        vim_vars.cmdarg,
+        ('!' if vim.vvars['cmdbang'] else ''),
+        vim.vvars['cmdarg'],
         file_name)
     cmd(write_cmd)
 
@@ -160,24 +166,24 @@ def handle_bom(iterable):
     if first[:len(expected_bom)] == expected_bom:
         first = first[len(expected_bom):]
     else:
-        setting_flags.bomb = False
+        vim.current.buffer.options['bomb'] = False
     yield first
     for x in i:
         yield x
 
 def get_bom():
-    if not setting_flags.bomb:
+    if not vim.current.buffer.options['bomb']:
         return b''
     return encoding_to_bom.get(get_fileencoding(), b'')
 
 def get_fileencoding():
-    result = settings.fileencoding
+    result = vim.current.buffer.options['fileencoding'].decode('ascii')
     if not result:
         result = 'utf-8'
     return vim_to_python_encodings.get(result, result)
 
 def get_line_ending():
-    fileformat = settings.fileformat
+    fileformat = vim.current.buffer.options['fileformat']
 
     result = '\n'
     if fileformat == 'dos':
