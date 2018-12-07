@@ -15,6 +15,11 @@ from hestrx_vimwrapper import cmd
 from hestrx_vimwrapper import echo
 from hestrx_vimwrapper import persisted_setting
 
+from hestrx_viewer import close_viewer
+from hestrx_viewer import open_viewer
+from hestrx_viewer import toggle_viewer
+from hestrx_viewer import update_viewer
+
 encoding_to_bom = {
     'utf_16_be': codecs.BOM_UTF16_BE,
     'utf_16_le': codecs.BOM_UTF16_LE,
@@ -34,9 +39,11 @@ vim_to_python_encodings = {
 def toggle_hex():
     buf = vim.current.buffer
     if 'hestrx' in buf.vars:
+        close_viewer()
         buf2bin()
     else:
         buf2hex()
+        open_viewer()
 
 def buf2bin():
     if not in_hex():

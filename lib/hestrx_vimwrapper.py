@@ -2,6 +2,7 @@ __all__ = [
     'cmd',
     'echo',
     'persisted_setting',
+    'window_context',
 ]
 
 from contextlib import contextmanager
@@ -29,6 +30,15 @@ def persisted_setting(setting):
         yield
     finally:
         vim.current.buffer.options[setting] = value
+
+@contextmanager
+def window_context(context):
+    original = vim.current.window
+    vim.current.window = context
+    try:
+        yield
+    finally:
+        vim.current.window = original
 
 def quote_str(s):
     return '"{}"'.format(

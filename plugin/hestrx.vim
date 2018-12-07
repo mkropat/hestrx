@@ -8,6 +8,7 @@ let s:script_dir = fnamemodify(resolve(expand('<sfile>:p')), ':h')
 let g:hestrx_lib_dir = fnamemodify(s:script_dir, ':h') . '/lib'
 
 command -nargs=0 Hestrx call hestrx#ToggleHex()
+command -nargs=0 HestrxViewer call hestrx#ToggleViewer()
 
 if mapcheck('gX', 'n') == ''
   nnoremap gX :Hestrx<cr>
